@@ -1,5 +1,6 @@
-import { Component } from '@angular/core';
-import { NavController, NavParams } from 'ionic-angular';
+import {Component, ViewChild} from '@angular/core';
+import {NavController, NavParams, Slides, Platform} from 'ionic-angular';
+import {SpeechRecognition} from "ionic-native";
 
 /*
   Generated class for the Word page.
@@ -12,10 +13,14 @@ import { NavController, NavParams } from 'ionic-angular';
   templateUrl: 'word.html'
 })
 export class WordPage {
+  @ViewChild(Slides) slides: Slides;
+  words = [];
 
-  word: string;
-  textColor: string = "#000000";
-  backgroundColor: string = "#FFFFFF";
+  listeningOptions = {
+    language: "en-US",
+    showPartial: true
+  };
+
   dictionary = ['a',
     'about',
     'after',
@@ -330,54 +335,83 @@ export class WordPage {
     'you',
     'your'];
 
-  colors = [
-    0x130667,
-    0x2D0FAE,
-    0xE71B1C,
-    0xC1ABA1,
-    0x84BCE3,
-    0x90EAEE,
-    0xB1D82E,
-    0xA90CF3,
-    0xC51741,
-    0xFA3B18,
-    0x6009F2,
-    0x51EAC1,
-    0x020722,
-    0x0DF755,
-    0x580326,
-    0x16DCE8,
-    0xE2C992,
-    0xDF1B64,
-    0x5F0B0C,
-    0x3026BD,
-    0x433F5A,
-    0x981110,
-    0xD3035D];
 
-
-  constructor(public navCtrl: NavController, public navParams: NavParams) {}
+  constructor(public platform: Platform, public navCtrl: NavController, public navParams: NavParams) {}
 
   ionViewDidLoad() {
     console.log('ionViewDidLoad WordPage');
-    this.nextWord();
+    this.shuffle();
+    this.words = this.dictionary;
+
+    this.platform.ready().then(() => {
+      SpeechRecognition.requestPermission()
+        .then(
+          () => this.startListening(),
+          () => console.log('Denied')
+        ).catch((err) => {
+        console.log("error: "+err)
+      })
+    }).catch((err) => {
+      console.log("error at platform then")
+    });
+
   }
 
-  nextWord(){
-    this.word = this.dictionary[this.getRandomInt(0,this.dictionary.length -1)];
-    this.setSafeColor();
+  startListening(){
+    SpeechRecognition.hasPermission().then((hasPermission: boolean) => {
+      if(hasPermission) {
+        console.log("has permission = "+hasPermission);
+        SpeechRecognition.startListening(this.listeningOptions).subscribe(
+            (matches: Array<string>) => {
+                for(let match of matches){
+                  console.log("match="+match);
+                  if(match.toUpperCase().indexOf(this.getCurrentWord().toUpperCase()) > -1){
+                    SpeechRecognition.stopListening().then(()=>{
+                      console.log("stopped listening...");
+                      this.nextPage();
+                    });
+                    break;
+                  }
+                }
+            },
+            (onerror) => {
+              console.log('error:', onerror)
+              SpeechRecognition.stopListening().then(()=> {
+                console.log("stopped - restarting");
+                this.startListening();
+              });
+            }
+          );
+      }else{
+        console.log("no permission to listen")
+      }
+    }).catch((err) => {
+      console.log("error while checking hasPermission: "+err)
+    })
   }
 
-  private setSafeColor(){
-    let color1Hex = this.colors[this.getRandomInt(0,this.colors.length -1)];
-    let color1 = "#"+color1Hex.toString(16);
-    let color2 = "#"+((0xFFFFFF - color1Hex).toString(16));
-    this.backgroundColor = color1;
-    this.textColor = color2;
+  nextPage(){
+    this.slides.slideNext();
+    setTimeout(() => { // <===
+      this.startListening();
+    }, 900);
   }
 
-  private getRandomInt(min, max) {
-    return Math.floor(Math.random() * (max - min + 1)) + min;
+  private getCurrentWord(){
+    return this.dictionary[this.slides.getActiveIndex()-1]
   }
+
+  shuffle() {
+    let i = 0
+      , j = 0
+      , temp = null
+
+    for (i = this.dictionary.length - 1; i > 0; i -= 1) {
+      j = Math.floor(Math.random() * (i + 1));
+      temp = this.dictionary[i];
+      this.dictionary[i] = this.dictionary[j];
+      this.dictionary[j] = temp
+    }
+}
 
 }

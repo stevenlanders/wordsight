@@ -5,6 +5,10 @@
   Ionic pages and navigation.
 -->
 
-<ion-content class="home" [ngStyle]="{'color': textColor,'background-color': backgroundColor}" padding>
-  <button style="font-size: 120px;" [ngStyle]="{'color': textColor,'background-color': backgroundColor}" (click)="nextWord()" ion-button full clear large>{{ word }}</button>
+<ion-content padding>
+  <ion-slides loop zoom>
+    <ion-slide *ngFor="let word of words">
+      <h1 style="font-size: 120px">{{ word }}</h1>
+    </ion-slide>
+  </ion-slides>
 </ion-content>
